@@ -12,15 +12,14 @@ from mpl_toolkits.mplot3d import Axes3D
 import os,sys
 
 # Grid size
-N = 4
-
+N = 101
 # Set step size
 h = 0.1
 
 # Calculate dt
 dt = h**2
 k = dt/h
-NumOfTimeSteps = int(5)
+NumOfTimeSteps = int(500)
 
 # Create mesh for plotting
 X, Y = np.mgrid[:N,:N]
@@ -37,7 +36,7 @@ ldiag = np.ones(N*N)
 A = sparse.dia_matrix(([diag,ldiag,ldiag,ldiag,ldiag],[0,1,-1,-N,N]),shape=(N*N,N*N))
 I = sparse.identity(N*N)
 
-print A.todense()
+#print A.todense()
 
 # Init U vectors
 U_2 = np.zeros(N*N)
@@ -45,14 +44,12 @@ U_1 = np.zeros(N*N)
 
 # Initial wave
 U_1[(N*N)/2] = 0.2
-U_2[(N*N)/2] = 0.2
 
 ## Run forloops to calculate
 for n in range(1,NumOfTimeSteps+1):
 
     # Calculate the new vector
-    U_new = (2*I + k*A)*U_1 - U_2
-    print max(U_new)
+    U_new = 2*U_1 + k*A*U_1 - U_2
     # Set rand_values to zero
     # First N values
     U_new[:N] = 0
@@ -65,16 +62,16 @@ for n in range(1,NumOfTimeSteps+1):
 
     #print U_new.reshape(N,N)
     # Render picture
-    #fname = '/tmp/1234/tmp_%05d.png' %n
-    #fig = plt.figure()
-    #ax = fig.add_subplot(1,1,1, projection='3d')
-    #surf = ax.plot_surface(X,Y,U_new.reshape(N,N), rstride=5, cstride=5, cmap=cm.ocean)
-    #ax.view_init(elev=30, azim=n/2)
-    #ax.set_zlim3d(-0.2,0.2)
-    #plt.savefig(fname, dpi=300)
-    #plt.clf()
-    #plt.close()
-    #print "Pic %s of %s created" % (n,NumOfTimeSteps)
+    fname = '/tmp/1234/tmp_%05d.png' %n
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1, projection='3d')
+    surf = ax.plot_surface(X,Y,U_new.reshape(N,N), rstride=5, cstride=5, cmap=cm.ocean)
+    ax.view_init(elev=30, azim=n/2)
+    ax.set_zlim3d(-0.2,0.2)
+    plt.savefig(fname, dpi=300)
+    plt.clf()
+    plt.close()
+    print "Pic %s of %s created" % (n,NumOfTimeSteps)
 
     U_2 = U_1
     U_1 = U_new
