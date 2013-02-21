@@ -10,17 +10,19 @@ from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 
 import os,sys
+import math
 
 # Grid size
-N = 4
+N = 100
 
 # Set step size
-h = 0.1
+h = 0.01
 
 # Calculate dt
-dt = h**2
+dt = 0.0001
 k = dt/h
-NumOfTimeSteps = int(5)
+NumOfTimeSteps = int(3000)
+plotSteps = 10
 
 # Create mesh for plotting
 X, Y = np.mgrid[:N,:N]
@@ -34,54 +36,92 @@ diag = np.zeros(N*N) - 4
 ldiag = np.ones(N*N)
 
 # Shcheme matrix for central differences
-A = sparse.dia_matrix(([diag,ldiag,ldiag,ldiag,ldiag],[0,1,-1,-N,N]),shape=(N*N,N*N))
+#A = sparse.dia_matrix(([diag,ldiag,ldiag,ldiag,ldiag],[0,1,-1,-N+1,N]),shape=(N*N,N*N))
 I = sparse.identity(N*N)
 
-print A.todense()
+method = [(0,0,-4),(1,0,1),(-1,0,1),(0,1,1),(0,-1,1)]
+
+def two_to_one(rows,cols,i,j):
+    return i*cols+j
+
+def one_to_two(rows,cols,n):
+    i = int(math.floor(float(n)/float(cols)))
+    j = n-cols*i
+    return (i,j)
+
+mask = np.ones((N,N))
+mask[0][:]=0
+mask[N-1][:]=0
+for i in xrange(30,40):
+    for j in xrange(30,40):
+        mask[i,j]=0
+for i in xrange(N):
+    mask[i][0]=0
+    mask[i][N-1]=0
+
+A = sparse.lil_matrix((N*N,N*N))
+for i in xrange(N*N):
+    (x,y) = one_to_two(N,N,i)
+    if mask[x][y]:
+        for (dx,dy,c) in method:
+            j = two_to_one(N,N,x+dx,y+dy)
+            if i<N*N and j<N*N:
+                A[i,j] = c
+
+A = sparse.dia_matrix(A)
+comp = (2*I +k*A)
+mask = mask.reshape(N*N,1)
 
 # Init U vectors
-U_2 = np.zeros(N*N)
-U_1 = np.zeros(N*N)
+U_2 = np.zeros((N*N,))
+U_1 = np.zeros((N*N,))
 
 # Initial wave
-U_1[(N*N)/2] = 0.2
-U_2[(N*N)/2] = 0.2
+U_1[(N/2)*N + N/2] = 0.2
+U_1 = np.transpose(np.matrix(U_1))
+U_2[(N/2)*N + N/2] = 0.2
+U_2 = np.transpose(np.matrix(U_2))
 
 ## Run forloops to calculate
+
+
+i = 0
 for n in range(1,NumOfTimeSteps+1):
 
     # Calculate the new vector
     U_new = (2*I + k*A)*U_1 - U_2
-    print max(U_new)
-    # Set rand_values to zero
-    # First N values
-    U_new[:N] = 0
-    # Last N values
-    U_new[N*N-N:] = 0
-    # Every Nth value
-    U_new[::N] = 0
-    # Every Nth +1 value
-    U_new[N-1::N] = 0
+    #U_new = comp*U_1 - U_2
+    U_new = np.multiply(U_new,mask)
 
-    #print U_new.reshape(N,N)
-    # Render picture
-    #fname = '/tmp/1234/tmp_%05d.png' %n
-    #fig = plt.figure()
-    #ax = fig.add_subplot(1,1,1, projection='3d')
-    #surf = ax.plot_surface(X,Y,U_new.reshape(N,N), rstride=5, cstride=5, cmap=cm.ocean)
-    #ax.view_init(elev=30, azim=n/2)
-    #ax.set_zlim3d(-0.2,0.2)
-    #plt.savefig(fname, dpi=300)
-    #plt.clf()
-    #plt.close()
-    #print "Pic %s of %s created" % (n,NumOfTimeSteps)
+    if n%plotSteps==0:
+        ## Render picture
+
+        fname = '/tmp/1234/tmp_%05d.png' %i
+        i+=1
+
+        plt.imshow(U_new.reshape(N,N))
+        plt.savefig(fname, dpi=100)
+        plt.clf()
+
+        #fig = plt.figure()
+        #ax = fig.add_subplot(1,1,1, projection='3d')
+        #surf = ax.plot_surface(X,Y,np.array(U_new.reshape(N,N))), rstride=5, cstride=5, cmap=cm.ocean)
+        #ax.view_init(elev=30, azim=n/2)
+        #ax.set_zlim3d(-0.06,0.06)
+        #plt.savefig(fname, dpi=100)
+        #plt.clf()
+        #plt.close()
+        print "Pic %s of %s created" % (n,NumOfTimeSteps)
 
     U_2 = U_1
     U_1 = U_new
 
-# Generate video of pngs and clear tmp_folders
-os.system("ffmpeg -y -r 20 -b 1800 -i /tmp/1234/tmp_%05d.png movie.mp4")
+## Generate video of pngs and clear tmp_folders
+#os.system("ffmpeg -y -r 20 -sameq -i /tmp/1234/tmp_%05d.png movie.mp4")
+os.system("ffmpeg -y -r 20 -sameq -i /tmp/1234/tmp_%05d.png movie.mp4")
+
 os.system("rm /tmp/1234/tmp*.png")
 os.system("rmdir /tmp/1234")
+os.system("vlc movie.mp4")
 
 print "Finished!"
