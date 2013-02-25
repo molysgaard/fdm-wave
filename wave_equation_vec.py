@@ -73,18 +73,24 @@ comp = (2*I +k*A)
 mask = mask.reshape(N*N,1)
 
 # Init U vectors
-U_2 = np.zeros((N*N,))
-U_1 = np.zeros((N*N,))
+#U_2 = np.zeros((N,N))
+U_1 = np.zeros((N,N))
 
 # Initial wave
-U_1[(N/2)*N + N/2] = 0.2
-U_1 = np.transpose(np.matrix(U_1))
-U_2[(N/2)*N + N/2] = 0.2
-U_2 = np.transpose(np.matrix(U_2))
+def gauss(x,y):
+    return 1/(2*math.pi)*math.exp(-(x^2 + y^2)/2)
+
+x_0 = N/2
+y_0 = N/2
+
+for i in xrange(-5,5):
+    for j in xrange(-5,5):
+        U_1[x_0+j,y_0+i]=gauss(j/5,i/5)
+
+U_1 = U_1.reshape(N*N,1)
+U_2 = U_1
 
 ## Run forloops to calculate
-
-
 i = 0
 for n in range(1,NumOfTimeSteps+1):
 
