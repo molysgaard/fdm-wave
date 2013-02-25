@@ -19,14 +19,14 @@ import os,sys
 mlab.options.offscreen = True
 
 # Grid size
-N = 101
+N = 1001
 # Set step size
 h = 0.1
 
 # Calculate dt
 dt = h**2
 k = dt/h
-NumOfTimeSteps = int(5)
+NumOfTimeSteps = int(500)
 
 # Create mesh for plotting
 X, Y = np.mgrid[:N,:N]
@@ -52,7 +52,7 @@ U_1 = np.zeros(N*N)
 # Initial wave
 U_1[(N*N)/2] = 0.2
 
-fig = mlab.figure(size=(2000,2000))
+fig = mlab.figure(size=(1000,1000))
 camera = fig.scene.camera
 #fig.scene.disable_render = True
 #fig.scene.off_screen_rendering = True
@@ -91,8 +91,8 @@ for n in range(1,NumOfTimeSteps+1):
 
 mlab.close()
 # Generate video of pngs and clear tmp_folders
-#os.system("ffmpeg -y -r 20 -b 1800 -i /tmp/1234/tmp_%05d.png movie.mp4")
-#os.system("rm /tmp/1234/tmp*.png")
-#os.system("rmdir /tmp/1234")
+os.system("ffmpeg -y -r 20 -sameq -i /tmp/1234/tmp_%05d.png movie.mp4")
+os.system("rm /tmp/1234/tmp*.png")
+os.system("rmdir /tmp/1234")
 
 print "Finished!"
