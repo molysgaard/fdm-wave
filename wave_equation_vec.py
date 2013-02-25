@@ -10,6 +10,7 @@ from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 
 from mayavi import mlab
+from tvtk.tools import visual
 
 import os,sys
 
@@ -25,7 +26,7 @@ h = 0.1
 # Calculate dt
 dt = h**2
 k = dt/h
-NumOfTimeSteps = int(100)
+NumOfTimeSteps = int(5)
 
 # Create mesh for plotting
 X, Y = np.mgrid[:N,:N]
@@ -51,8 +52,17 @@ U_1 = np.zeros(N*N)
 # Initial wave
 U_1[(N*N)/2] = 0.2
 
-fig = mlab.figure()
+fig = mlab.figure(size=(2000,2000))
+camera = fig.scene.camera
+#fig.scene.disable_render = True
+#fig.scene.off_screen_rendering = True
+mlab.view(focalpoint=(0,0,0),elevation=70,distance=70)
+#camera.yaw(120)
 
+#visual.set_viewer(fig)
+
+U_new = U_1
+s = mlab.surf(X,Y,U_new.reshape(N,N),extent=[0,100,0,100,0,50],vmax=0.2,vmin=-0.2)
 ## Run forloops to calculate
 for n in range(1,NumOfTimeSteps+1):
 
@@ -68,11 +78,11 @@ for n in range(1,NumOfTimeSteps+1):
     # Every Nth +1 value
     U_new[N-1::N] = 0
 
+    s.mlab_source.scalars = U_new.reshape(N,N)
+    #fig.scene.render()
     # Render picture
     fname = '/tmp/1234/tmp_%05d.png' %n
-    s = mlab.surf(X,Y,U_new.reshape(N,N),warp_scale=200,vmax=0.2,vmin=-0.2)
-    mlab.savefig(fname, size=(1000,1000))
-    mlab.clf()
+    mlab.savefig(fname,size=(1000,1000))
     print "Pic %s of %s created" % (n,NumOfTimeSteps)
 
     # Update old vectors
@@ -81,8 +91,8 @@ for n in range(1,NumOfTimeSteps+1):
 
 mlab.close()
 # Generate video of pngs and clear tmp_folders
-os.system("ffmpeg -y -r 20 -b 1800 -i /tmp/1234/tmp_%05d.png movie.mp4")
-os.system("rm /tmp/1234/tmp*.png")
-os.system("rmdir /tmp/1234")
+#os.system("ffmpeg -y -r 20 -b 1800 -i /tmp/1234/tmp_%05d.png movie.mp4")
+#os.system("rm /tmp/1234/tmp*.png")
+#os.system("rmdir /tmp/1234")
 
 print "Finished!"
