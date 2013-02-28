@@ -19,7 +19,7 @@ import math
 mlab.options.offscreen = True
 
 # Grid size
-N = 1001
+N = 101
 # Set step size
 h = 0.01
 
@@ -79,11 +79,14 @@ A = sparse.dia_matrix(A)
 comp = (2*I +k*A)
 mask = mask.reshape(N*N,1)
 
-def gauss(x,y):
-    return 1/(2*math.pi)*math.exp(-(x^2 + y^2)/2)
+# Initial waves
+U_1 = np.zeros((N,N))
 
-x_0 = N/2
-y_0 = N/2
+def gauss(x,y):
+    return 1.0/(2.0*math.pi)*math.exp(-(x^2 + y^2)/2)
+
+x_0 = N/2.0
+y_0 = N/2.0
 
 for i in xrange(-5,5):
     for j in xrange(-5,5):
@@ -105,19 +108,21 @@ U_new = U_1
 s = mlab.surf(X,Y,U_new.reshape(N,N),extent=[0,100,0,100,0,50],vmax=0.2,vmin=-0.2)
 
 # Run forloops to calculate
+i = 100
 for n in range(1,NumOfTimeSteps+1):
 
     # Calculate the new vector
-    U_new = (2*I + k*A)*U_1 - U_2
+    U_new = (2*I + (1.0/100)*k*A)*U_1 - U_2
     #U_new = comp*U_1 - U_2
     U_new = np.multiply(U_new,mask)
 
-    s.mlab_source.scalars = U_new.reshape(N,N)
-    #fig.scene.render()
-    # Render picture
-    fname = '/tmp/1234/tmp_%05d.png' %n
-    mlab.savefig(fname,size=(1000,1000))
-    print "Pic %s of %s created" % (n,NumOfTimeSteps)
+    if (n%i==0):
+        s.mlab_source.scalars = U_new.reshape(N,N)
+        #fig.scene.render()
+        # Render picture
+        fname = '/tmp/1234/tmp_%05d.png' % int(n/i)
+        mlab.savefig(fname,size=(1000,1000))
+        print "Pic %s of %s created" % (n,NumOfTimeSteps)
 
     # Update old vectors
     U_2 = U_1
