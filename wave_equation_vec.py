@@ -13,19 +13,17 @@ import os,sys
 import math
 
 # Grid size
-N = 400
+N = 200
 
 # Set step size
 h = 0.01
 # wave speed, must be less than one to make sense
-c = 0.005
-dt = 0.001
+c = 0.05
+dt = 0.00001
 
 k = dt/h
-NumOfTimeSteps = int(10000)
-plotSteps = 20
-
-print c*dt*h*h
+NumOfTimeSteps = int(50)
+plotSteps = 1
 
 # Create mesh for plotting
 X, Y = np.mgrid[:N,:N]
@@ -35,15 +33,27 @@ os.system("mkdir /tmp/1234")
 
 # Create A matrix
 
-diag = np.zeros(N*N) - 4
-ldiag = np.ones(N*N)
+#diag = np.zeros(N*N) - 4
+#ldiag = np.ones(N*N)
 
 # Shcheme matrix for central differences
 #A = sparse.dia_matrix(([diag,ldiag,ldiag,ldiag,ldiag],[0,1,-1,-N+1,N]),shape=(N*N,N*N))
 I = sparse.identity(N*N)
 
+def mult(xs,a):
+    ret = []
+    for (x,y,z) in xs:
+        ret.append((x,y,a*z))
+    return ret
+
+p = math.sqrt(3.0/8.1)
+one = mult([(1,0,1.0),(-1,0,1.0),(0,1,1.0),(0,-1,1.0)],16.0)
+two = mult([(2,0,1.0),(-2,0,1.0),(0,2,1.0),(0,-2,1.0)],-1.0)
+gress = mult(one + two,p*p/12.0)
+method = gress + [(0,0,2.0-5.0*p*p)]
+print method
+
 method = [(0,0,-4),(1,0,1),(-1,0,1),(0,1,1),(0,-1,1)]
-#method = [(0,0,-4),(1,0,1),(-1,0,1),(0,1,1),(0,-1,1),(1,1,0),(1,-1,0),(-1,1,0),(-1,-1,0)]
 
 def two_to_one(rows,cols,i,j):
     return i*cols+j
@@ -73,7 +83,7 @@ for i in xrange(N*N):
                 A[i,j] = c
 
 A = sparse.dia_matrix(A)
-comp = (2*I +k*c**2*A)
+comp = (k*c**2*A)
 mask = mask.reshape(N*N,1)
 
 # Init U vectors
@@ -87,9 +97,9 @@ def gauss(x,y):
 x_0 = N/2
 y_0 = N/2
 
-for i in xrange(-20,20):
-    for j in xrange(-20,20):
-        U_1[x_0+j,y_0+i]=gauss(j/5.0,i/5.0)
+for i in xrange(-10,10):
+    for j in xrange(-10,10):
+        U_1[x_0+j,y_0+i]=gauss(j/20.0,i/20.0)
 
 U_1 = U_1.reshape(N*N,1)
 U_2 = U_1
@@ -117,8 +127,8 @@ for n in range(1,NumOfTimeSteps+1):
 
         fig = plt.figure()
         ax = fig.add_subplot(1,1,1, projection='3d')
-        surf = ax.plot_surface(X,Y,np.array(U_new.reshape(N,N)), linewidth=0, shade=True, antialiased=False, facecolors=colors)
-        #surf = ax.plot_surface(X,Y,np.array(U_new.reshape(N,N)), rstride=5, cstride=5, cmap=cm.ocean)
+        #surf = ax.plot_surface(X,Y,np.array(U_new.reshape(N,N)), linewidth=0, shade=True, antialiased=False, facecolors=colors)
+        surf = ax.plot_surface(X,Y,np.array(U_new.reshape(N,N)), linewidth=0, cmap=cm.ocean)
         #ax.view_init(elev=30, azim=n/2)
         ax.set_zlim3d(-0.1,0.1)
         plt.savefig(fname, dpi=150)
