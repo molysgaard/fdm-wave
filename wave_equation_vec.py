@@ -15,20 +15,21 @@ from tvtk.tools import visual
 import os,sys
 import math
 
-# Turn off gui
-mlab.options.offscreen = True
+## Turn off gui
+#mlab.options.offscreen = True
 
-# Grid size
-N = 101
 # Set step size
-h = 0.01
+h = 0.01 # we calculate the pressure at each centimetre
+# Grid size
+N = int(1/h) # 1x1 metres room
+# wave speed, must be less than one to make sense
+c = 340 # sound speed 340 m/s
+dt = 1.0/100000000 # we check the pressure each 1/1000 second
 
-# Calculate dt
-dt = h**2
+simulationtime = 0.001
 k = dt/h
-
-# Number of steps
-NumOfTimeSteps = int(500)
+NumOfTimeSteps = int(simulationtime/dt)
+plotSteps = 20
 
 # Create mesh for plotting
 X, Y = np.mgrid[:N,:N]
@@ -38,15 +39,40 @@ os.system("mkdir /tmp/1234")
 
 # Create A matrix
 
-diag = np.zeros(N*N) - 4
-ldiag = np.ones(N*N)
+#diag = np.zeros(N*N) - 4
+#ldiag = np.ones(N*N)
 
 # Shcheme matrix for central differences
 #A = sparse.dia_matrix(([diag,ldiag,ldiag,ldiag,ldiag],[0,1,-1,-N+1,N]),shape=(N*N,N*N))
 I = sparse.identity(N*N)
 
-#print A.todense()
+def mult(xs,a):
+    ret = []
+    for (x,y,z) in xs:
+        ret.append((x,y,a*z))
+    return ret
+
+p = math.sqrt(3.0/8.1)
+one = mult([(1,0,1.0),(-1,0,1.0),(0,1,1.0),(0,-1,1.0)],16.0)
+two = mult([(2,0,1.0),(-2,0,1.0),(0,2,1.0),(0,-2,1.0)],-1.0)
+gress = mult(one + two,p*p/12.0)
+method = gress + [(0,0,2.0-5.0*p*p)]
+print method
+
 method = [(0,0,-4),(1,0,1),(-1,0,1),(0,1,1),(0,-1,1)]
+
+def mult(xs,a):
+    ret = []
+    for (x,y,z) in xs:
+        ret.append((x,y,a*z))
+    return ret
+
+p = math.sqrt(3.0/8.1)/(k*c*c)
+p = k*c*c
+one = mult([(1,0,1.0),(-1,0,1.0),(0,1,1.0),(0,-1,1.0)],16.0)
+two = mult([(2,0,1.0),(-2,0,1.0),(0,2,1.0),(0,-2,1.0)],-1.0)
+gress = mult(one + two,p*p/12.0)
+method = gress + [(0,0,-5.0*p*p)]
 
 def two_to_one(rows,cols,i,j):
     return i*cols+j
@@ -70,58 +96,53 @@ A = sparse.lil_matrix((N*N,N*N))
 for i in xrange(N*N):
     (x,y) = one_to_two(N,N,i)
     if mask[x][y]:
-        for (dx,dy,c) in method:
+        for (dx,dy,coeff) in method:
             j = two_to_one(N,N,x+dx,y+dy)
             if i<N*N and j<N*N:
-                A[i,j] = c
+                A[i,j] = coeff
 
 A = sparse.dia_matrix(A)
-comp = (2*I +k*A)
+comp = 2*I + k*c*c*A
 mask = mask.reshape(N*N,1)
 
-# Initial waves
+# Init U vectors
 U_1 = np.zeros((N,N))
 
 def gauss(x,y):
-    return 1.0/(2.0*math.pi)*math.exp(-(x^2 + y^2)/2)
+    return 1/(2*math.pi)*math.exp(-(x**2 + y**2)/2)
 
-x_0 = N/2.0
-y_0 = N/2.0
+# the origin of the initial wave
+x_0 = N/2
+y_0 = N/2
 
-for i in xrange(-5,5):
-    for j in xrange(-5,5):
-        U_1[x_0+j,y_0+i]=gauss(j/5,i/5)
+for i in xrange(-10,10):
+    for j in xrange(-10,10):
+        U_1[x_0+j,y_0+i]=gauss(j/20.0,i/20.0)
 
 U_1 = U_1.reshape(N*N,1)
 U_2 = U_1
 
-fig = mlab.figure(size=(1000,1000))
-camera = fig.scene.camera
-#fig.scene.disable_render = True
-#fig.scene.off_screen_rendering = True
-mlab.view(focalpoint=(0,0,0),elevation=70,distance=70)
-#camera.yaw(120)
+colors = [[(0, 0.9, 1, 1.) for x in range(N)] for y in range(N)]
 
-#visual.set_viewer(fig)
-
+i = 0
 U_new = U_1
 s = mlab.surf(X,Y,U_new.reshape(N,N),extent=[0,100,0,100,0,50],vmax=0.2,vmin=-0.2)
-
-# Run forloops to calculate
-i = 100
 for n in range(1,NumOfTimeSteps+1):
 
     # Calculate the new vector
-    U_new = (2*I + (1.0/100)*k*A)*U_1 - U_2
-    #U_new = comp*U_1 - U_2
+    U_new = comp*U_1 - U_2
     U_new = np.multiply(U_new,mask)
 
-    if (n%i==0):
+    if n%plotSteps==0:
+        ## Render picture
+
+        fname = '/tmp/1234/tmp_%05d.png' %i
+        i+=1
         s.mlab_source.scalars = U_new.reshape(N,N)
-        #fig.scene.render()
-        # Render picture
-        fname = '/tmp/1234/tmp_%05d.png' % int(n/i)
+        fname = '/tmp/1234/tmp_%05d.png' % i
         mlab.savefig(fname,size=(1000,1000))
+        i = i+1
+
         print "Pic %s of %s created" % (n,NumOfTimeSteps)
 
     # Update old vectors
