@@ -14,17 +14,16 @@ import math
 
 
 # Set step size
-h = 0.01 # we calculate the pressure at each centimetre
+dx = 0.1
+dy = 0.1
 # Grid size
-N = int(1/h) # 1x1 metres room
+N = 100 # 1x1 metres room
 # wave speed, must be less than one to make sense
 c = 340 # sound speed 340 m/s
 dt = 1.0/100000000 # we check the pressure each 1/1000 second
 
-simulationtime = 0.001
-k = dt/h
-NumOfTimeSteps = int(simulationtime/dt)
-plotSteps = 20
+NumOfTimeSteps = 400
+plotSteps = 2
 
 # Create mesh for plotting
 X, Y = np.mgrid[:N,:N]
@@ -41,22 +40,29 @@ ldiag = np.ones(N*N)
 #A = sparse.dia_matrix(([diag,ldiag,ldiag,ldiag,ldiag],[0,1,-1,-N+1,N]),shape=(N*N,N*N))
 I = sparse.identity(N*N)
 
-method = [(0,0,-4),(1,0,1),(-1,0,1),(0,1,1),(0,-1,1)]
-#method = [(0,0,-4),(1,0,1),(-1,0,1),(0,1,1),(0,-1,1),(1,1,0),(1,-1,0),(-1,1,0),(-1,-1,0)]
-
 def mult(xs,a):
     ret = []
     for (x,y,z) in xs:
         ret.append((x,y,a*z))
     return ret
 
-p = math.sqrt(3.0/8.1)/(k*c*c)
-p = k*c*c
-one = mult([(1,0,1.0),(-1,0,1.0),(0,1,1.0),(0,-1,1.0)],16.0)
-two = mult([(2,0,1.0),(-2,0,1.0),(0,2,1.0),(0,-2,1.0)],-1.0)
-gress = mult(one + two,p*p/12.0)
-method = gress + [(0,0,-5.0*p*p)]
-#print method
+# second order compass method
+cross = mult([(1,0,1),(-1,0,1)],dt/(dx*dx)) + mult([(0,1,1),(0,-1,1)],dt/(dy*dy))
+
+diag = mult([(1,1,1),(-1,-1,1),(-1,1,1),(1,-1,1)],dt/(dx*dx+dy*dy))
+
+#method = cross+[(0,0,-4*dt/(dx*dy))]
+#method = diag+[(0,0,-4*dt/(dx*dx+dy*dy))]
+
+method = mult(cross+diag+[(0,0,-4*dt/(dx*dy))]+[(0,0,-4*dt/(dx*dx+dy*dy))], 0.5)
+
+#p = 1
+#one = mult([(1,0,1.0),(-1,0,1.0),(0,1,1.0),(0,-1,1.0)],16.0)
+#two = mult([(2,0,1.0),(-2,0,1.0),(0,2,1.0),(0,-2,1.0)],-1.0)
+#gress = mult(one + two,p*p/12.0)
+#method = gress + [(0,0,-5.0*p*p)]
+
+print method
 
 def two_to_one(rows,cols,i,j):
     return i*cols+j
@@ -80,13 +86,13 @@ A = sparse.lil_matrix((N*N,N*N))
 for i in xrange(N*N):
     (x,y) = one_to_two(N,N,i)
     if mask[x][y]:
-        for (dx,dy,coeff) in method:
-            j = two_to_one(N,N,x+dx,y+dy)
+        for (ddx,ddy,coeff) in method:
+            j = two_to_one(N,N,x+ddx,y+ddy)
             if i<N*N and j<N*N:
-                A[i,j] = coeff
+                A[i,j] += coeff
 
 A = sparse.dia_matrix(A)
-comp = 2*I + k*c*c*A
+comp = 2*I + c*c*A
 mask = mask.reshape(N*N,1)
 
 # Init U vectors
@@ -145,8 +151,8 @@ for n in range(1,NumOfTimeSteps+1):
 #os.system("ffmpeg -y -r 20 -sameq -i /tmp/1234/tmp_%05d.png movie.mp4")
 os.system("ffmpeg -y -r 20 -sameq -i /tmp/1234/tmp_%05d.png movie.mp4")
 
-os.system("rm /tmp/1234/tmp*.png")
-os.system("rmdir /tmp/1234")
+#os.system("rm /tmp/1234/tmp*.png")
+#os.system("rmdir /tmp/1234")
 os.system("vlc movie.mp4")
 
 print "Finished!"
