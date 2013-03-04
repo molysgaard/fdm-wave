@@ -17,11 +17,17 @@ N = 1000.0
 dx = 0.1
 dt = dx**2
 
-C = dt/dx
-C2 = C**2
+c = 0.5
+
+print "Speed of scheme (dx/dt): %s" % (dx/dt)
+print "c: %s" % c
+
+s = c**2*(dt/dx)**2
+
+print "Computed s: %s" % s
 
 # Number of Time steps
-NumberOfTimeSteps = 64000
+NumberOfTimeSteps = 6400
 
 # Create A matrix for solving
 diag = np.ones(N)*(-2)
@@ -30,25 +36,27 @@ A = sparse.dia_matrix(([diag,ldiag,ldiag],[0,1,-1]),shape=(N,N))
 I = sparse.identity(N)
 
 # Function to start wave
-def start_wave(vector,sigma):
+def start_wave(vector):
     length = len(vector)
     for x in range(length):
-        vector[x] = np.exp(-(x-length/2.0)**2/sigma)
-        #vector[x] = np.sin(np.pi*x/N)
+        if x > 990:
+            print x
+        #vector[x] = np.exp(-(x-length/2.0)**2/sigma)
+        vector[x] = 0.3*np.sin(20*np.pi*x/length)
     return vector
 
 # Start wave
-U_1 = np.zeros(N)
+U_1 = start_wave(np.zeros(N))
 U_2 = U_1
 
 # Create dir
 os.system("mkdir /tmp/1234")
 
 # Calculations
-PlotSteps = 300
+PlotSteps = 30
 for i in range(NumberOfTimeSteps):
 
-    U_new = (2*I + C2*A)*U_1 - U_2
+    U_new = (2*I + s*A)*U_1 - U_2
 
     if i%PlotSteps==0:
         fname = '/tmp/1234/tmp_%05d.png' %(i/PlotSteps)
@@ -64,8 +72,9 @@ for i in range(NumberOfTimeSteps):
     # Update vecotrs
     U_2 = U_1
     U_1 = U_new
-    U_1[0] = 0.3*np.sin(10*np.pi*i/NumberOfTimeSteps)
-    U_1[-1] = 0
+    #U_1[N/2.0] = 0.3*np.sin(np.pi*i/NumberOfTimeSteps)
+    U_1[0] = 0
+    U_1[-0] = 0
 
 
 # Generate video of pngs and clear tmp_folders
