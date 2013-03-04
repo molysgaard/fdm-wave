@@ -39,8 +39,6 @@ I = sparse.identity(N)
 def start_wave(vector):
     length = len(vector)
     for x in range(length):
-        if x > 990:
-            print x
         #vector[x] = np.exp(-(x-length/2.0)**2/sigma)
         vector[x] = 0.3*np.sin(20*np.pi*x/length)
     return vector
