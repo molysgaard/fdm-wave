@@ -8,42 +8,35 @@ from scipy.misc import imread
 dx = 0.1
 dy = 0.1
 # Grid size
-Nx = 800 # 1x1 metres room
-Ny = 200 # 1x1 metres room
-# wave speed, must be less than one to make sense
-c = 340 # sound speed 340 m/s
-dt = 1.0/100000000 # we check the pressure each 1/1000 second
+Nx = 800
+Ny = 200
+c = 340
+dt = 1.00/100000
 
-# Create A matrix
-
-#diag = numpy.zeros(N*N) - 4
-#ldiag = numpy.ones(N*N)
-
-# Shcheme matrix for central differences
-#A = sparse.dia_matrix(([diag,ldiag,ldiag,ldiag,ldiag],[0,1,-1,-N+1,N]),shape=(N*N,N*N))
 I = sparse.identity(Ny*Nx)
 
+# Create A matrix
 def mult(xs,a):
     ret = []
     for (x,y,z) in xs:
         ret.append((x,y,a*z))
     return ret
 
-# second order compass method
+# second order cross method
 cross = mult([(1,0,1),(-1,0,1)],dt/(dx*dx)) + mult([(0,1,1),(0,-1,1)],dt/(dy*dy))
 
+# second order diagonal method
 diag = mult([(1,1,1),(-1,-1,1),(-1,1,1),(1,-1,1)],dt/(dx*dx+dy*dy))
 
-method = cross+[(0,0,-4*dt/(dx*dy))]
-#method = diag+[(0,0,-4*dt/(dx*dx+dy*dy))]
+#method = cross+[(0,0,2-4*c*c*dt/(dx*dy))]
+#method = diag+[(0,0,2-4*c*c*dt/(dx*dx+dy*dy))]
+#method = mult(cross+diag+[(0,0,2-4*c*c*dt/(dx*dy))]+[(0,0,2-4*c*c*dt/(dx*dx+dy*dy))], 0.5)
 
-#method = mult(cross+diag+[(0,0,-4*dt/(dx*dy))]+[(0,0,-4*dt/(dx*dx+dy*dy))], 0.5)
-
-#p = 1
-#one = mult([(1,0,1.0),(-1,0,1.0),(0,1,1.0),(0,-1,1.0)],16.0)
-#two = mult([(2,0,1.0),(-2,0,1.0),(0,2,1.0),(0,-2,1.0)],-1.0)
-#gress = mult(one + two,p*p/12.0)
-#method = gress + [(0,0,-5.0*p*p)]
+p = dt/(dx*dy)*c
+one = mult([(1,0,1.0),(-1,0,1.0),(0,1,1.0),(0,-1,1.0)],16.0)
+two = mult([(2,0,1.0),(-2,0,1.0),(0,2,1.0),(0,-2,1.0)],-1.0)
+gress = mult(one + two,p*p/12.0)
+method = gress + [(0,0,2-5.0*p*p)]
 
 print method
 
@@ -71,14 +64,15 @@ mask = 1-mask
 A = sparse.lil_matrix((Ny*Nx,Ny*Nx))
 for i in xrange(Ny*Nx):
     (x,y) = one_to_two(Ny,Nx,i)
-    if mask[x][y]:
+    if mask[x,y]:
         for (ddx,ddy,coeff) in method:
             j = two_to_one(Ny,Nx,x+ddx,y+ddy)
             if i<Ny*Nx and j<Ny*Nx:
                 A[i,j] += coeff
 
 A = sparse.dia_matrix(A)
-comp = 2*I + c*c*A
+#comp = 2*I + c*c*A
+comp = A
 mask = mask.reshape(Ny*Nx,1)
 
 # Init U vectors
@@ -108,14 +102,21 @@ fig = glumpy.figure( (2*Nx,2*Ny) )
 image = glumpy.image.Image(Z, interpolation='nearest',
                            colormap=glumpy.colormap.Grey)
 
+#image_mask = glumpy.image.Image(mask.astype(numpy.uint8), interpolation='nearest',
+#        colormap=glumpy.colormap.Grey)
+
 @fig.event
 def on_draw():
     fig.clear()
     image.draw(0,0,0,fig.width,fig.height)
+    #image_mask.draw(0,0,0,fig.width,fig.height)
+
+i = 0
+printStep = 10
 
 @fig.event
 def on_idle(dt):
-    global uold, unow, image
+    global uold, unow, image, i
 
     unew = comp*unow - uold
     unew = numpy.multiply(unew,mask)
@@ -123,12 +124,17 @@ def on_idle(dt):
     uold = unow
     unow = unew
 
-    Z = unew.reshape(Ny,Nx).astype(numpy.float32)
-    Z = (3000*Z+100).astype(numpy.uint8)
-    image = glumpy.image.Image(Z, interpolation='nearest',
-                colormap=glumpy.colormap.LightBlue)
+    if i==printStep:
+        i=0
+        Z = unew.reshape(Ny,Nx).astype(numpy.float32)
+        Z = (3000*Z+100).astype(numpy.uint8)
+        image = glumpy.image.Image(Z, interpolation='nearest',
+                    colormap=glumpy.colormap.LightBlue)
 
-    image.update()
-    fig.redraw()
+        image.update()
+        fig.redraw()
+        print numpy.sum(numpy.abs(Z))
+    else:
+        i+=1
 
 glumpy.show()

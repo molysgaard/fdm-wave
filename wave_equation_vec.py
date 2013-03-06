@@ -21,7 +21,7 @@ N = 100 # 1x1 metres room
 c = 340 # sound speed 340 m/s
 dt = 1.0/100000000 # we check the pressure each 1/1000 second
 
-NumOfTimeSteps = 400
+NumOfTimeSteps = 100
 plotSteps = 2
 
 # Create mesh for plotting
@@ -50,10 +50,10 @@ cross = mult([(1,0,1),(-1,0,1)],dt/(dx*dx)) + mult([(0,1,1),(0,-1,1)],dt/(dy*dy)
 
 diag = mult([(1,1,1),(-1,-1,1),(-1,1,1),(1,-1,1)],dt/(dx*dx+dy*dy))
 
-#method = cross+[(0,0,-4*dt/(dx*dy))]
+method = cross+[(0,0,-4*dt/(dx*dy))]
 #method = diag+[(0,0,-4*dt/(dx*dx+dy*dy))]
 
-method = mult(cross+diag+[(0,0,-4*dt/(dx*dy))]+[(0,0,-4*dt/(dx*dx+dy*dy))], 0.5)
+#method = mult(cross+diag+[(0,0,-4*dt/(dx*dy))]+[(0,0,-4*dt/(dx*dx+dy*dy))], 0.5)
 
 #p = 1
 #one = mult([(1,0,1.0),(-1,0,1.0),(0,1,1.0),(0,-1,1.0)],16.0)
@@ -105,9 +105,9 @@ def gauss(x,y):
 x_0 = N/2
 y_0 = N/2
 
-for i in xrange(-10,10):
-    for j in xrange(-10,10):
-        U_1[x_0+j,y_0+i]=gauss(j/20.0,i/20.0)
+for i in xrange(-20,20):
+    for j in xrange(-20,20):
+        U_1[x_0+j,y_0+i]=gauss(j/4.0,i/4.0)
 
 U_1 = U_1.reshape(N*N,1)
 U_2 = U_1
