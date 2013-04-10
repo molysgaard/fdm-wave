@@ -31,18 +31,35 @@ def create_scheme():
         #A[i*N-1,:] = z
         #A[N-i*N,:] = z
 
-    return sparse.csr_matrix(A)
+    return sparse.csc_matrix(A)
 
 A = create_scheme()
 
-def add_absorbing(m):
+
+def add_absorbing_simple(m):
     for i in xrange(N):
+        # simplest discretization from note
         m[i*N,i*N] = 1-a*p
         m[i*N,i*N+1] = a*p
+
     return m
 
-A = add_absorbing(A)
+def add_absorbing_paper(m,n):
+    for i in xrange(N):
+        # discretization from the paper
+        m[i*N,i*N] = 1/h - 1/k
+        m[i*N,i*N+1] = -(1/h+1/k)
 
+        n[i*N,i*N] = -(1/h+1/k)
+        n[i*N,i*N+1] = 1/h - 1/k
+
+    return m, n
+
+
+#A = add_absorbing_simple(A)
+
+B = sparse.identity(N*N)
+A, B = add_absorbing_paper(A, B)
 
 def create_mask():
     m = np.ones((N,N))
@@ -97,7 +114,8 @@ i = 0
 def on_idle(dt):
     global uold, unow, image, i
 
-    unew = A*unow - np.multiply(uold,old_mask)
+    #unew = A*unow - np.multiply(uold,old_mask)
+    unew = sparse.linalg.spsolve(B, A*unow - np.multiply(uold,old_mask))
     unew = np.multiply(unew,mask)
 
     uold = unow
