@@ -4,37 +4,66 @@ import numpy as np
 import glumpy
 import scipy.sparse as sparse
 from scipy.sparse.linalg import spsolve
+import matplotlib.pyplot as plt
+from scipy.misc import imsave
 
 # schema can be note_first, note_second, paper_first, paper_second
 schema = "paper_first"
 
-printStep = 1
+num_measures = 16000
+printStep = 100
+
+snapshot_times = [420,2100,3480,4630,9400,10300,12100]
 
 h = 0.2
-Nr = 200
+Nr = 300
 Nc = 100
 
-wave_numbers = [(10.0, 0, 80),(6.6666666, 80, 160),(3.333333, 160, 200)]
+#Nr = 100
+#Nc = 50
 
-initial_row = 40
+initial_row = 25
 initial_col = Nc/2
 
 k = 0.01
-
 p = k/h
 
+cs = np.zeros((Nr,Nc))
+for r in xrange(Nr):
+    for c in xrange(Nc):
+        #if float(r)+10.0*np.sin(float(c)/100.0*2.0*np.pi+np.pi/2.0) > 40:
+        #    if float(r)+10.0*np.sin(float(c)/100.0*np.pi+np.pi/2.0) > 80:
+        #        cs[r,c] = 3.3333333
+        #    else:
+        #        cs[r,c] = 6.6666666
+        #else:
+        #    cs[r,c] = 10.0
+        if float(r)+10.0*np.sin(float(c)/100.0*2.0*np.pi+np.pi/2.0) > 100:
+            if float(r)+20.0*np.sin(float(c)/100.0*np.pi+np.pi/2.0) > 220:
+                cs[r,c] = 0.33333333
+            else:
+                cs[r,c] = 0.66666666
+        else:
+            cs[r,c] = 1.0
+
+savemask = np.ones((Nr,Nc))
+for r in xrange(Nr):
+    for c in xrange(Nc):
+        if cs[r,c] < 0.90 and c%4==0:
+            savemask[r,c] = 0.0
+        elif cs[r,c] < 0.60 and (c%4==0 or c%4==1):
+            savemask[r,c] = 0.0
+savemask = savemask.reshape(Nr*Nc,1)
+
+cs = np.squeeze(np.asarray(cs.reshape(Nr*Nc,1)))
 
 ###################################################################################
 # the matrix for our difference method
 def create_scheme():
-    d = np.ones(Nr*Nc)
-    # modify the wave speed for the different rows
-    for (c,start,end) in wave_numbers:
-        d[start*Nc:end*Nc] = c*c*k*k/(h*h)*d[start*Nc:end*Nc]
+    d = cs**2*k*k/(h*h)
 
     M = sparse.dia_matrix(([-4*d,d,d,d,d],[0,-1,1,-Nc,Nc]),shape=(Nr*Nc,Nr*Nc))
     I = sparse.identity(Nr*Nc)
-    #A = 2*I + c*c*k*k/(h*h)*M
     A = 2*I + M
     A = sparse.lil_matrix(A)
     
@@ -43,9 +72,6 @@ def create_scheme():
         A[i*Nc,:] = z # column 1
         A[i*Nc-1,:] = z # column Nc
         A[0,:] = z # row 1
-        #A[i,:] = z
-        #A[i*N-1,:] = z
-        #A[N-i*N,:] = z
 
     return sparse.csc_matrix(A)
 
@@ -63,28 +89,38 @@ def add_absorbing_paper_first(m,n):
     for i in xrange(Nc):
         # discretization from the paper
         # row 1
-        c = wave_numbers[0][0]
+        c = cs[i]
         m[i,i] = (c/h - 1/k)
         m[i,i+Nc] = -(c/h+1/k)
 
         n[i,i] = -(c/h+1/k)
         n[i,i+Nc] = (c/h - 1/k)
 
-    for (c,start,end) in wave_numbers:
-        for i in xrange(start,end):
-            # discretization from the paper
-            # column 1
-            m[i*Nc,i*Nc] = (c/h - 1/k)
-            m[i*Nc,i*Nc+1] = -(c/h + 1/k)
+        # row Nr
+        c = cs[Nr*Nc-1]
+        j = (Nr-1)*Nc+i
+        m[j,j] = -(c/h - 1/k)
+        m[j,j-Nc] = (c/h+1/k)
 
-            n[i*Nc,i*Nc] = -(c/h + 1/k)
-            n[i*Nc,i*Nc+1] = (c/h - 1/k)
-            # column Nc
-            m[(i+1)*Nc-1,(i+1)*Nc-1] = -(c/h - 1/k)
-            m[(i+1)*Nc-1,(i+1)*Nc-2] = (c/h+1/k)
+        n[j,j] = (c/h+1/k)
+        n[j,j-Nc] = -(c/h - 1/k)
 
-            n[(i+1)*Nc-1,(i+1)*Nc-1] = (c/h+1/k)
-            n[(i+1)*Nc-1,(i+1)*Nc-2] = -(c/h - 1/k)
+    for i in xrange(Nr):
+        # discretization from the paper
+        # column 1
+        c = cs[i*Nc]
+        m[i*Nc,i*Nc] = (c/h - 1/k)
+        m[i*Nc,i*Nc+1] = -(c/h + 1/k)
+
+        n[i*Nc,i*Nc] = -(c/h + 1/k)
+        n[i*Nc,i*Nc+1] = (c/h - 1/k)
+        # column Nc
+        c = cs[(i+1)*Nc-1]
+        m[(i+1)*Nc-1,(i+1)*Nc-1] = -(c/h - 1/k)
+        m[(i+1)*Nc-1,(i+1)*Nc-2] = (c/h+1/k)
+
+        n[(i+1)*Nc-1,(i+1)*Nc-1] = (c/h+1/k)
+        n[(i+1)*Nc-1,(i+1)*Nc-2] = -(c/h - 1/k)
 
     return m, n
 
@@ -118,13 +154,11 @@ def create_mask():
 
 def create_old_mask():
     m = np.ones((Nr,Nc))
-    for i in xrange(1,Nr-1):
-        m[i,0] = 0 # column 1
-        m[i,Nc-1] = 0 # column Nc
-    for i in xrange(1,Nc-1):
-        m[0,i] = 0 # row 1
+    m[:,0] = 0
+    m[:,Nc-1] = 0
+    m[0,:] = 0
+    m[Nr-1,:] = 0
     return m.reshape(Nr*Nc,1)
-
 
 mask = create_mask()
 old_mask = create_old_mask()
@@ -135,18 +169,16 @@ old_mask = create_old_mask()
 # code to create the initial state
 def create_gauss_wave(initial, x_0, y_0):
     def gauss(x,y):
-        return 1/(2*np.pi)*np.exp(-(x**2 + y**2)/2)
+        return 1.0/(2.0*np.pi)*np.exp(-(x**2 + y**2)/2.0)
 
     for i in xrange(-20,20):
         for j in xrange(-20,20):
-            initial[x_0+j,y_0+i]=gauss(j/4,i/4)
+            initial[x_0+j,y_0+i]=gauss(float(j)/4.0,float(i)/4.0)
     return initial
 
-unow = create_gauss_wave(np.zeros((Nr,Nc)), initial_row, initial_col).reshape(Nr*Nc,1)
-unow = np.matrix(unow)
-print unow.shape
-uold = unow
-print A.shape, B.shape
+uold = create_gauss_wave(np.zeros((Nr,Nc)), initial_row, initial_col).reshape(Nr*Nc,1)
+uold = np.matrix(uold)
+unow = spsolve(B,0.5*A*uold).reshape(Nr*Nc,1)
 
 ####################################################################################
 # beginning of rendering code
@@ -159,14 +191,15 @@ image = glumpy.image.Image(Z, interpolation='nearest',
 
 @fig.event
 def on_draw():
-    fig.clear()
-    image.draw(0,0,0,fig.width,fig.height)
+    pass
+    #fig.clear()
+    #image.draw(0,0,0,fig.width,fig.height)
 
-i = 0
+counter = 0
+measurements = np.zeros(num_measures)
 @fig.event
 def on_idle(dt):
-    global uold, unow, image, i
-
+    global uold, unow, image, counter
 
     rhs = A*unow - np.multiply(uold,old_mask)
 
@@ -175,21 +208,31 @@ def on_idle(dt):
     elif schema=="paper_first":
         unew = spsolve(B, rhs).reshape(Nr*Nc,1)
 
-    unew = np.multiply(unew,mask)
+    #unew = np.multiply(unew,mask)
 
     uold = unow
     unow = unew
 
-    if i==printStep:
-        i=0
-        Z = (3000*unew+100).reshape(Nr,Nc).astype(np.uint8)
-        image = glumpy.image.Image(Z, interpolation='nearest',
-                    colormap=glumpy.colormap.LightBlue)
+    if counter == len(measurements):
+        plt.plot(measurements)
+        plt.show()
+        exit()
 
-        image.update()
-        fig.redraw()
-        print np.sum(np.abs(Z))
-    else:
-        i+=1
+    measurements[counter] = unow[2*Nc+Nc/2]
+    print counter
+    if counter in snapshot_times or counter%printStep==0:
+        tmp = unow-unow.min()
+        imsave('shots/shot%04d.png' % counter, np.multiply(tmp,savemask).reshape(Nr,Nc))
+
+
+    #if counter%printStep==0:
+    #    Z = (3000*unew+100).reshape(Nr,Nc).astype(np.uint8)
+    #    image = glumpy.image.Image(Z, interpolation='nearest',
+    #                colormap=glumpy.colormap.LightBlue)
+
+    #    image.update()
+    #    fig.redraw()
+    #    #print np.sum(np.abs(Z))
+    counter += 1
 
 glumpy.show()
