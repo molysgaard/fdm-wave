@@ -32,7 +32,8 @@ def create_scheme():
     z = np.zeros(Nr*Nc)
     for i in xrange(Nr):
         A[i*Nc,:] = z # column 1
-        A[i*Nc-1,:] = z #column Nc
+        A[i*Nc-1,:] = z # column Nc
+        A[0,:] = z # row 1
         #A[i,:] = z
         #A[i*N-1,:] = z
         #A[N-i*N,:] = z
@@ -50,6 +51,15 @@ def add_absorbing_simple(m):
     return m
 
 def add_absorbing_paper_first(m,n):
+    for i in xrange(Nc):
+        # discretization from the paper
+        # row 1
+        m[i,i] = 1/h - 1/k
+        m[i,i+Nc] = -(1/h+1/k)
+
+        n[i,i] = -(1/h+1/k)
+        n[i,i+Nc] = 1/h - 1/k
+
     for i in xrange(Nr):
         # discretization from the paper
         # column 1
@@ -92,17 +102,16 @@ elif schema=="paper_second":
 
 def create_mask():
     m = np.ones((Nr,Nc))
-    m[0,:] = 0
-    m[Nr-1,:] = 0
-    #m[:,0] = 0 # comment out for absorbing boundaries
-    #m[:,Nc-1] = 0
+    m[Nr-1,:] = 0 # row Nr
     return m.reshape(Nr*Nc,1)
 
 def create_old_mask():
     m = np.ones((Nr,Nc))
     for i in xrange(1,Nr-1):
-        m[i,0] = 0
-        m[i,Nc-1] = 0
+        m[i,0] = 0 # column 1
+        m[i,Nc-1] = 0 # column Nc
+    for i in xrange(1,Nc-1):
+        m[0,i] = 0 # row 1
     return m.reshape(Nr*Nc,1)
 
 
