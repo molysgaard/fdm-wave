@@ -11,12 +11,16 @@ schema = "paper_first"
 printStep = 1
 
 h = 0.2
-Nr = 100
-Nc = 200
-c = 1.0
+Nr = 200
+Nc = 100
+
+wave_numbers = [(2.0, 0, 80),(6.6666666, 80, 160),(3.333333, 160, 200)]
+
+initial_row = 40
+initial_col = Nc/2
+
 k = 0.01
 
-a = c*c
 p = k/h
 
 
@@ -24,9 +28,14 @@ p = k/h
 # the matrix for our difference method
 def create_scheme():
     d = np.ones(Nr*Nc)
+    # modify the wave speed for the different rows
+    for (c,start,end) in wave_numbers:
+        d[start*Nc:end*Nc] = c*c*k*k/(h*h)*d[start*Nc:end*Nc]
+
     M = sparse.dia_matrix(([-4*d,d,d,d,d],[0,-1,1,-Nc,Nc]),shape=(Nr*Nc,Nr*Nc))
     I = sparse.identity(Nr*Nc)
-    A = 2*I + c*c*k*k/(h*h)*M
+    #A = 2*I + c*c*k*k/(h*h)*M
+    A = 2*I + M
     A = sparse.lil_matrix(A)
     
     z = np.zeros(Nr*Nc)
@@ -54,26 +63,28 @@ def add_absorbing_paper_first(m,n):
     for i in xrange(Nc):
         # discretization from the paper
         # row 1
-        m[i,i] = 1/h - 1/k
-        m[i,i+Nc] = -(1/h+1/k)
+        c = wave_numbers[0][0]
+        m[i,i] = c*(1/h - 1/k)
+        m[i,i+Nc] = -c*(1/h+1/k)
 
-        n[i,i] = -(1/h+1/k)
-        n[i,i+Nc] = 1/h - 1/k
+        n[i,i] = -c*(1/h+1/k)
+        n[i,i+Nc] = c*(1/h - 1/k)
 
-    for i in xrange(Nr):
-        # discretization from the paper
-        # column 1
-        m[i*Nc,i*Nc] = 1/h - 1/k
-        m[i*Nc,i*Nc+1] = -(1/h+1/k)
+    for (c,start,end) in wave_numbers:
+        for i in xrange(start,end):
+            # discretization from the paper
+            # column 1
+            m[i*Nc,i*Nc] = 1/h - c/k
+            m[i*Nc,i*Nc+1] = -(1/h+c/k)
 
-        n[i*Nc,i*Nc] = -(1/h+1/k)
-        n[i*Nc,i*Nc+1] = 1/h - 1/k
-        # column Nc
-        m[(i+1)*Nc-1,(i+1)*Nc-1] = -(1/h - 1/k)
-        m[(i+1)*Nc-1,(i+1)*Nc-2] = (1/h+1/k)
+            n[i*Nc,i*Nc] = -(1/h+c/k)
+            n[i*Nc,i*Nc+1] = 1/h - c/k
+            # column Nc
+            m[(i+1)*Nc-1,(i+1)*Nc-1] = -(1/h - c/k)
+            m[(i+1)*Nc-1,(i+1)*Nc-2] = (1/h+c/k)
 
-        n[(i+1)*Nc-1,(i+1)*Nc-1] = (1/h+1/k)
-        n[(i+1)*Nc-1,(i+1)*Nc-2] = -(1/h - 1/k)
+            n[(i+1)*Nc-1,(i+1)*Nc-1] = (1/h+c/k)
+            n[(i+1)*Nc-1,(i+1)*Nc-2] = -(1/h - c/k)
 
     return m, n
 
@@ -131,7 +142,7 @@ def create_gauss_wave(initial, x_0, y_0):
             initial[x_0+j,y_0+i]=gauss(j/4,i/4)
     return initial
 
-unow = create_gauss_wave(np.zeros((Nr,Nc)), Nr/2, Nc/2).reshape(Nr*Nc,1)
+unow = create_gauss_wave(np.zeros((Nr,Nc)), initial_row, initial_col).reshape(Nr*Nc,1)
 unow = np.matrix(unow)
 print unow.shape
 uold = unow
