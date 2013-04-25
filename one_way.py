@@ -3,6 +3,10 @@
 import numpy as np
 import glumpy
 import scipy.sparse as sparse
+from scipy.sparse.linalg import spsolve
+
+# schema can be note_first, note_second, paper_first, paper_second
+schema = "paper_first"
 
 printStep = 1
 
@@ -35,7 +39,6 @@ def create_scheme():
 
 A = create_scheme()
 
-
 def add_absorbing_simple(m):
     for i in xrange(N):
         # simplest discretization from note
@@ -44,7 +47,18 @@ def add_absorbing_simple(m):
 
     return m
 
-def add_absorbing_paper(m,n):
+def add_absorbing_paper_first(m,n):
+    for i in xrange(N):
+        # discretization from the paper
+        m[i*N,i*N] = 1/h - 1/k
+        m[i*N,i*N+1] = -(1/h+1/k)
+
+        n[i*N,i*N] = -(1/h+1/k)
+        n[i*N,i*N+1] = 1/h - 1/k
+
+    return m, n
+
+def add_absorbing_paper_second(m,n):
     for i in xrange(N):
         # discretization from the paper
         m[i*N,i*N] = 1/h - 1/k
@@ -56,10 +70,16 @@ def add_absorbing_paper(m,n):
     return m, n
 
 
-#A = add_absorbing_simple(A)
-
-B = sparse.identity(N*N)
-A, B = add_absorbing_paper(A, B)
+if schema=="note_first":
+    A = add_absorbing_simple(A)
+elif schema=="paper_first":
+    B = sparse.identity(N*N)
+    A, B = add_absorbing_paper_first(A, B)
+    B = sparse.csr_matrix(B)
+elif schema=="paper_second":
+    B = sparse.identity(N*N)
+    A, B = add_absorbing_paper_second(A, B)
+    B = sparse.csr_matrix(B)
 
 def create_mask():
     m = np.ones((N,N))
@@ -93,7 +113,10 @@ def create_gauss_wave(initial, x_0, y_0):
     return initial
 
 unow = create_gauss_wave(np.zeros((N,N)), N/2, N/2).reshape(N*N,1)
+unow = np.matrix(unow)
+print unow.shape
 uold = unow
+print A.shape, B.shape
 
 ####################################################################################
 # beginning of rendering code
@@ -114,8 +137,14 @@ i = 0
 def on_idle(dt):
     global uold, unow, image, i
 
-    #unew = A*unow - np.multiply(uold,old_mask)
-    unew = sparse.linalg.spsolve(B, A*unow - np.multiply(uold,old_mask))
+
+    rhs = A*unow - np.multiply(uold,old_mask)
+
+    if schema=="note_first":
+        unew = rhs
+    elif schema=="paper_first":
+        unew = spsolve(B, rhs).reshape(N*N,1)
+
     unew = np.multiply(unew,mask)
 
     uold = unow
@@ -123,8 +152,7 @@ def on_idle(dt):
 
     if i==printStep:
         i=0
-        Z = unew.reshape(N,N).astype(np.float32)
-        Z = (3000*Z+100).astype(np.uint8)
+        Z = (3000*unew+100).reshape(N,N).astype(np.uint8)
         image = glumpy.image.Image(Z, interpolation='nearest',
                     colormap=glumpy.colormap.LightBlue)
 
