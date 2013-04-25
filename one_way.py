@@ -14,7 +14,7 @@ h = 0.2
 Nr = 200
 Nc = 100
 
-wave_numbers = [(2.0, 0, 80),(6.6666666, 80, 160),(3.333333, 160, 200)]
+wave_numbers = [(10.0, 0, 80),(6.6666666, 80, 160),(3.333333, 160, 200)]
 
 initial_row = 40
 initial_col = Nc/2
@@ -64,27 +64,27 @@ def add_absorbing_paper_first(m,n):
         # discretization from the paper
         # row 1
         c = wave_numbers[0][0]
-        m[i,i] = c*(1/h - 1/k)
-        m[i,i+Nc] = -c*(1/h+1/k)
+        m[i,i] = (c/h - 1/k)
+        m[i,i+Nc] = -(c/h+1/k)
 
-        n[i,i] = -c*(1/h+1/k)
-        n[i,i+Nc] = c*(1/h - 1/k)
+        n[i,i] = -(c/h+1/k)
+        n[i,i+Nc] = (c/h - 1/k)
 
     for (c,start,end) in wave_numbers:
         for i in xrange(start,end):
             # discretization from the paper
             # column 1
-            m[i*Nc,i*Nc] = 1/h - c/k
-            m[i*Nc,i*Nc+1] = -(1/h+c/k)
+            m[i*Nc,i*Nc] = (c/h - 1/k)
+            m[i*Nc,i*Nc+1] = -(c/h + 1/k)
 
-            n[i*Nc,i*Nc] = -(1/h+c/k)
-            n[i*Nc,i*Nc+1] = 1/h - c/k
+            n[i*Nc,i*Nc] = -(c/h + 1/k)
+            n[i*Nc,i*Nc+1] = (c/h - 1/k)
             # column Nc
-            m[(i+1)*Nc-1,(i+1)*Nc-1] = -(1/h - c/k)
-            m[(i+1)*Nc-1,(i+1)*Nc-2] = (1/h+c/k)
+            m[(i+1)*Nc-1,(i+1)*Nc-1] = -(c/h - 1/k)
+            m[(i+1)*Nc-1,(i+1)*Nc-2] = (c/h+1/k)
 
-            n[(i+1)*Nc-1,(i+1)*Nc-1] = (1/h+c/k)
-            n[(i+1)*Nc-1,(i+1)*Nc-2] = -(1/h - c/k)
+            n[(i+1)*Nc-1,(i+1)*Nc-1] = (c/h+1/k)
+            n[(i+1)*Nc-1,(i+1)*Nc-2] = -(c/h - 1/k)
 
     return m, n
 
