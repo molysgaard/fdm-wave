@@ -11,16 +11,14 @@ from scipy.misc import imsave
 schema = "paper_first"
 
 num_measures = 16000
-printStep = 100
+printStep = 10
+imsaveStep = 100
 
 snapshot_times = [420,2100,3480,4630,9400,10300,12100]
 
 h = 0.2
 Nr = 300
 Nc = 100
-
-#Nr = 100
-#Nc = 50
 
 initial_row = 25
 initial_col = Nc/2
@@ -29,32 +27,22 @@ k = 0.01
 p = k/h
 
 cs = np.zeros((Nr,Nc))
-for r in xrange(Nr):
-    for c in xrange(Nc):
-        #if float(r)+10.0*np.sin(float(c)/100.0*2.0*np.pi+np.pi/2.0) > 40:
-        #    if float(r)+10.0*np.sin(float(c)/100.0*np.pi+np.pi/2.0) > 80:
-        #        cs[r,c] = 3.3333333
-        #    else:
-        #        cs[r,c] = 6.6666666
-        #else:
-        #    cs[r,c] = 10.0
-        if float(r)+10.0*np.sin(float(c)/100.0*2.0*np.pi+np.pi/2.0) > 100:
-            if float(r)+20.0*np.sin(float(c)/100.0*np.pi+np.pi/2.0) > 220:
-                cs[r,c] = 0.33333333
-            else:
-                cs[r,c] = 0.66666666
-        else:
-            cs[r,c] = 1.0
-
 savemask = np.ones((Nr,Nc))
 for r in xrange(Nr):
     for c in xrange(Nc):
-        if cs[r,c] < 0.90 and c%4==0:
-            savemask[r,c] = 0.0
-        elif cs[r,c] < 0.60 and (c%4==0 or c%4==1):
-            savemask[r,c] = 0.0
-savemask = savemask.reshape(Nr*Nc,1)
+        if float(r)+10.0*np.sin(float(c)/100.0*2.0*np.pi+np.pi/2.0) > 100:
+            if float(r)+20.0*np.sin(float(c)/100.0*np.pi+np.pi/2.0) > 220:
+                cs[r,c] = 0.33333333
+                if c%4==0 or c%4==1:
+                    savemask[r,c] = 0.0
+            else:
+                cs[r,c] = 0.66666666
+                if c%4==0:
+                    savemask[r,c] = 0.0
+        else:
+            cs[r,c] = 1.0
 
+savemask = savemask.reshape(Nr*Nc,1)
 cs = np.squeeze(np.asarray(cs.reshape(Nr*Nc,1)))
 
 ###################################################################################
@@ -147,11 +135,6 @@ elif schema=="paper_second":
     A, B = add_absorbing_paper_second(A, B)
     B = sparse.csr_matrix(B)
 
-def create_mask():
-    m = np.ones((Nr,Nc))
-    m[Nr-1,:] = 0 # row Nr
-    return m.reshape(Nr*Nc,1)
-
 def create_old_mask():
     m = np.ones((Nr,Nc))
     m[:,0] = 0
@@ -160,10 +143,7 @@ def create_old_mask():
     m[Nr-1,:] = 0
     return m.reshape(Nr*Nc,1)
 
-mask = create_mask()
 old_mask = create_old_mask()
-
-
 
 ###################################################################################
 # code to create the initial state
@@ -187,13 +167,12 @@ Z = unow.reshape(Nr,Nc).astype(np.float32)
 
 fig = glumpy.figure( (2*Nc,2*Nr) )
 image = glumpy.image.Image(Z, interpolation='nearest',
-                           colormap=glumpy.colormap.Grey)
+                           colormap=glumpy.colormap.LightBlue)
 
 @fig.event
 def on_draw():
-    pass
-    #fig.clear()
-    #image.draw(0,0,0,fig.width,fig.height)
+    fig.clear()
+    image.draw(0,0,0,fig.width,fig.height)
 
 counter = 0
 measurements = np.zeros(num_measures)
@@ -208,8 +187,6 @@ def on_idle(dt):
     elif schema=="paper_first":
         unew = spsolve(B, rhs).reshape(Nr*Nc,1)
 
-    #unew = np.multiply(unew,mask)
-
     uold = unow
     unow = unew
 
@@ -220,19 +197,19 @@ def on_idle(dt):
 
     measurements[counter] = unow[2*Nc+Nc/2]
     print counter
-    if counter in snapshot_times or counter%printStep==0:
+    if counter in snapshot_times or counter%imsaveStep==0:
         tmp = unow-unow.min()
         imsave('shots/shot%04d.png' % counter, np.multiply(tmp,savemask).reshape(Nr,Nc))
 
 
-    #if counter%printStep==0:
-    #    Z = (3000*unew+100).reshape(Nr,Nc).astype(np.uint8)
-    #    image = glumpy.image.Image(Z, interpolation='nearest',
-    #                colormap=glumpy.colormap.LightBlue)
+    if counter%printStep==0:
+        Z = (3000*unew+100).reshape(Nr,Nc).astype(np.uint8)
+        image = glumpy.image.Image(Z, interpolation='nearest',
+                    colormap=glumpy.colormap.LightBlue)
 
-    #    image.update()
-    #    fig.redraw()
-    #    #print np.sum(np.abs(Z))
+        image.update()
+        fig.redraw()
+        #print np.sum(np.abs(Z))
     counter += 1
 
 glumpy.show()
